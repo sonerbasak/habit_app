@@ -32,13 +32,18 @@ const HabitModelSchema = CollectionSchema(
       name: r'lastCompletedDate',
       type: IsarType.dateTime,
     ),
-    r'startDate': PropertySchema(
+    r'position': PropertySchema(
       id: 3,
+      name: r'position',
+      type: IsarType.long,
+    ),
+    r'startDate': PropertySchema(
+      id: 4,
       name: r'startDate',
       type: IsarType.dateTime,
     ),
     r'title': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'title',
       type: IsarType.string,
     )
@@ -81,8 +86,9 @@ void _habitModelSerialize(
   writer.writeLong(offsets[0], object.currentStreak);
   writer.writeBool(offsets[1], object.isCompleted);
   writer.writeDateTime(offsets[2], object.lastCompletedDate);
-  writer.writeDateTime(offsets[3], object.startDate);
-  writer.writeString(offsets[4], object.title);
+  writer.writeLong(offsets[3], object.position);
+  writer.writeDateTime(offsets[4], object.startDate);
+  writer.writeString(offsets[5], object.title);
 }
 
 HabitModel _habitModelDeserialize(
@@ -95,8 +101,9 @@ HabitModel _habitModelDeserialize(
     currentStreak: reader.readLongOrNull(offsets[0]) ?? 0,
     isCompleted: reader.readBoolOrNull(offsets[1]) ?? false,
     lastCompletedDate: reader.readDateTimeOrNull(offsets[2]),
-    startDate: reader.readDateTimeOrNull(offsets[3]),
-    title: reader.readStringOrNull(offsets[4]),
+    position: reader.readLongOrNull(offsets[3]) ?? 0,
+    startDate: reader.readDateTimeOrNull(offsets[4]),
+    title: reader.readStringOrNull(offsets[5]),
   );
   object.id = id;
   return object;
@@ -116,8 +123,10 @@ P _habitModelDeserializeProp<P>(
     case 2:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 3:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset) ?? 0) as P;
     case 4:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 5:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -408,6 +417,60 @@ extension HabitModelQueryFilter
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition> positionEqualTo(
+      int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'position',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      positionGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'position',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition> positionLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'position',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition> positionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'position',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
       startDateIsNull() {
     return QueryBuilder.apply(this, (query) {
@@ -673,6 +736,18 @@ extension HabitModelQuerySortBy
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> sortByPosition() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'position', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> sortByPositionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'position', Sort.desc);
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QAfterSortBy> sortByStartDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'startDate', Sort.asc);
@@ -749,6 +824,18 @@ extension HabitModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> thenByPosition() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'position', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> thenByPositionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'position', Sort.desc);
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QAfterSortBy> thenByStartDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'startDate', Sort.asc);
@@ -795,6 +882,12 @@ extension HabitModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QDistinct> distinctByPosition() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'position');
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QDistinct> distinctByStartDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'startDate');
@@ -833,6 +926,12 @@ extension HabitModelQueryProperty
       lastCompletedDateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastCompletedDate');
+    });
+  }
+
+  QueryBuilder<HabitModel, int, QQueryOperations> positionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'position');
     });
   }
 

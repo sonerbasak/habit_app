@@ -33,7 +33,7 @@ class IsarService extends ChangeNotifier {
 
   Future<void> _refreshHabits() async {
     final isar = await isarDB;
-    _habits = await isar.habitModels.where().findAll();
+    _habits = await isar.habitModels.where().sortByPosition().findAll();
     notifyListeners();
   }
 
@@ -59,26 +59,33 @@ class IsarService extends ChangeNotifier {
       final updatedHabit = await isar.habitModels.get(habit.id);
       if (updatedHabit == null) return;
 
-      if (updatedHabit.isCompleted) {
-        updatedHabit.isCompleted = false;
-        updatedHabit.currentStreak = 0;
-        updatedHabit.lastCompletedDate = null;
-      } else {
-        final now = DateTime.now();
-        final today = DateTime(now.year, now.month, now.day);
-        final lastCheck = updatedHabit.lastCompletedDate;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final lastCheck = updatedHabit.lastCompletedDate != null
+          ? DateTime(
+              updatedHabit.lastCompletedDate!.year,
+              updatedHabit.lastCompletedDate!.month,
+              updatedHabit.lastCompletedDate!.day,
+            )
+          : null;
 
+      if (updatedHabit.isCompleted &&
+          lastCheck != null &&
+          lastCheck.isAtSameMomentAs(today)) {
+        updatedHabit.isCompleted = false;
+        updatedHabit.currentStreak = (updatedHabit.currentStreak - 1)
+            .clamp(0, double.infinity)
+            .toInt();
+        updatedHabit.lastCompletedDate = today.subtract(
+          const Duration(days: 1),
+        );
+      } else {
+        // Yeni tik işleme
         if (lastCheck == null) {
           updatedHabit.currentStreak = 1;
         } else {
-          final lastCompletedDay = DateTime(
-            lastCheck.year,
-            lastCheck.month,
-            lastCheck.day,
-          );
           final yesterday = today.subtract(const Duration(days: 1));
-
-          if (lastCompletedDay.isAtSameMomentAs(yesterday)) {
+          if (lastCheck.isAtSameMomentAs(yesterday)) {
             updatedHabit.currentStreak++;
           } else {
             updatedHabit.currentStreak = 1;
@@ -87,17 +94,46 @@ class IsarService extends ChangeNotifier {
         updatedHabit.isCompleted = true;
         updatedHabit.lastCompletedDate = now;
       }
+
       await isar.writeTxn(() async {
         await isar.habitModels.put(updatedHabit);
       });
+
       final check = await isar.habitModels.get(updatedHabit.id);
       debugPrint(
         'After put -> isCompleted: ${check?.isCompleted}, streak: ${check?.currentStreak}',
       );
+
       await _refreshHabits();
     } catch (e) {
       debugPrint("Error toggling habit: $e");
     }
+  }
+
+  Future<void> reorderHabits(int oldIndex, int newIndex) async {
+    // `newIndex`'i ReorderableListView'ın beklentisine uygun şekilde ayarlayın.
+    // Bir elemanı aşağıdan yukarıya taşıyorsanız, indeksler kayacağı için
+    // yeni konumu 1 azaltmanız gerekir.
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+
+    // Bu kısımda sadece listenin içindeki elemanların sırasını değiştirin.
+    final habitToMove = _habits.removeAt(oldIndex);
+    _habits.insert(newIndex, habitToMove);
+
+    // Veri tabanını güncelleme işlemi
+    final isar = await isarDB;
+    await isar.writeTxn(() async {
+      for (var i = 0; i < _habits.length; i++) {
+        // Her bir habit'in pozisyonunu yeni sıralamasına göre güncelleyin
+        _habits[i].position = i;
+        await isar.habitModels.put(_habits[i]);
+      }
+    });
+
+    // Listener'ları (örneğin UI'ı) güncelleyerek listenin yeniden çizilmesini sağlayın.
+    notifyListeners();
   }
 
   Future<void> deleteHabit(int id) async {

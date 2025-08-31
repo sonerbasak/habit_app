@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:habit_app/pages/add_page.dart';
-import 'package:habit_app/pages/home_page.dart';
+import 'package:habit_app/pages/home/home_page.dart';
 
 class AppRoutes {
   static const String home = '/';
