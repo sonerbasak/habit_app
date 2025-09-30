@@ -298,4 +298,25 @@ class IsarService extends ChangeNotifier {
     final diffDays = date.difference(firstDayOfYear).inDays;
     return ((diffDays + firstDayOfYear.weekday - 1) / 7).floor() + 1;
   }
+
+  FrequencyType? _currentFilter;
+
+  void filterFrequencyType(FrequencyType type) {
+    _currentFilter = type;
+    notifyListeners();
+  }
+
+  void clearFilter() {
+    _currentFilter = null;
+    notifyListeners();
+  }
+
+  List<HabitModel> get filteredHabits {
+    if (_currentFilter == null) {
+      return _habits;
+    }
+    return _habits
+        .where((habit) => habit.frequencyType == _currentFilter)
+        .toList();
+  }
 }

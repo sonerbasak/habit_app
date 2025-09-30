@@ -13,6 +13,7 @@ class HabitModel {
   int currentStreak = 0;
   DateTime? lastCompletedDate;
   bool isCompleted = false;
+  DateTime? notificationTime;
 
   int position = 0;
 
@@ -30,6 +31,7 @@ class HabitModel {
     this.position = 0,
     this.frequencyType = FrequencyType.daily,
     this.daysOfWeek,
+    this.notificationTime,
   });
 
   @override
@@ -37,6 +39,7 @@ class HabitModel {
     return 'HabitModel(id: $id, title: $title, '
         'frequencyType: $frequencyType, daysOfWeek: $daysOfWeek, '
         'currentStreak: $currentStreak, isCompleted: $isCompleted, '
-        'lastCompletedDate: $lastCompletedDate, position: $position)';
+        'lastCompletedDate: $lastCompletedDate, position: $position)'
+        'notificationTime: $notificationTime';
   }
 }

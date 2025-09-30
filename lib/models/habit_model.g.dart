@@ -43,18 +43,23 @@ const HabitModelSchema = CollectionSchema(
       name: r'lastCompletedDate',
       type: IsarType.dateTime,
     ),
-    r'position': PropertySchema(
+    r'notificationTime': PropertySchema(
       id: 5,
+      name: r'notificationTime',
+      type: IsarType.dateTime,
+    ),
+    r'position': PropertySchema(
+      id: 6,
       name: r'position',
       type: IsarType.long,
     ),
     r'startDate': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'startDate',
       type: IsarType.dateTime,
     ),
     r'title': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'title',
       type: IsarType.string,
     )
@@ -105,9 +110,10 @@ void _habitModelSerialize(
   writer.writeByte(offsets[2], object.frequencyType.index);
   writer.writeBool(offsets[3], object.isCompleted);
   writer.writeDateTime(offsets[4], object.lastCompletedDate);
-  writer.writeLong(offsets[5], object.position);
-  writer.writeDateTime(offsets[6], object.startDate);
-  writer.writeString(offsets[7], object.title);
+  writer.writeDateTime(offsets[5], object.notificationTime);
+  writer.writeLong(offsets[6], object.position);
+  writer.writeDateTime(offsets[7], object.startDate);
+  writer.writeString(offsets[8], object.title);
 }
 
 HabitModel _habitModelDeserialize(
@@ -124,9 +130,10 @@ HabitModel _habitModelDeserialize(
         FrequencyType.daily,
     isCompleted: reader.readBoolOrNull(offsets[3]) ?? false,
     lastCompletedDate: reader.readDateTimeOrNull(offsets[4]),
-    position: reader.readLongOrNull(offsets[5]) ?? 0,
-    startDate: reader.readDateTimeOrNull(offsets[6]),
-    title: reader.readStringOrNull(offsets[7]),
+    notificationTime: reader.readDateTimeOrNull(offsets[5]),
+    position: reader.readLongOrNull(offsets[6]) ?? 0,
+    startDate: reader.readDateTimeOrNull(offsets[7]),
+    title: reader.readStringOrNull(offsets[8]),
   );
   object.id = id;
   return object;
@@ -152,10 +159,12 @@ P _habitModelDeserializeProp<P>(
     case 4:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
-      return (reader.readLongOrNull(offset) ?? 0) as P;
-    case 6:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 6:
+      return (reader.readLongOrNull(offset) ?? 0) as P;
     case 7:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 8:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -678,6 +687,80 @@ extension HabitModelQueryFilter
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      notificationTimeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'notificationTime',
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      notificationTimeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'notificationTime',
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      notificationTimeEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'notificationTime',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      notificationTimeGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'notificationTime',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      notificationTimeLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'notificationTime',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      notificationTimeBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'notificationTime',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition> positionEqualTo(
       int value) {
     return QueryBuilder.apply(this, (query) {
@@ -1009,6 +1092,19 @@ extension HabitModelQuerySortBy
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> sortByNotificationTime() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notificationTime', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy>
+      sortByNotificationTimeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notificationTime', Sort.desc);
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QAfterSortBy> sortByPosition() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'position', Sort.asc);
@@ -1109,6 +1205,19 @@ extension HabitModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> thenByNotificationTime() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notificationTime', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy>
+      thenByNotificationTimeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'notificationTime', Sort.desc);
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QAfterSortBy> thenByPosition() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'position', Sort.asc);
@@ -1179,6 +1288,12 @@ extension HabitModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QDistinct> distinctByNotificationTime() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'notificationTime');
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QDistinct> distinctByPosition() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'position');
@@ -1236,6 +1351,13 @@ extension HabitModelQueryProperty
       lastCompletedDateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastCompletedDate');
+    });
+  }
+
+  QueryBuilder<HabitModel, DateTime?, QQueryOperations>
+      notificationTimeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'notificationTime');
     });
   }
 

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:habit_app/services/notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:habit_app/routes/app_routes.dart';
 import 'package:habit_app/services/habit_services.dart';
 import 'package:habit_app/services/theme_services.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await NotificationService.init(); // bildirim servisini başlat
+
   runApp(
     MultiProvider(
       providers: [

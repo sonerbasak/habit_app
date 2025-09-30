@@ -1,6 +1,10 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:habit_app/models/habit_model.dart';
 import 'package:habit_app/pages/home/widgets/delete_dialog.dart';
+import 'package:habit_app/pages/home/widgets/habit_icon_helper.dart';
+import 'package:habit_app/routes/app_routes.dart';
 import 'package:habit_app/services/habit_services.dart';
 import 'package:provider/provider.dart';
 import 'package:habit_app/pages/home/constant.dart';
@@ -28,15 +32,56 @@ class _HabitItemState extends State<HabitItem> {
   Widget build(BuildContext context) {
     return Dismissible(
       key: Key(widget.habit.id.toString()),
-      direction: DismissDirection.endToStart,
+      direction: DismissDirection.horizontal,
       background: Container(
         color: Colors.red,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      confirmDismiss: (direction) {
-        return showDialog<bool>(
+      secondaryBackground: Container(
+        color: Colors.lightBlueAccent,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Icon(Icons.edit, color: Colors.white),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.endToStart) {
+          // Sağdan sola kaydırma → düzenleme
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text("Düzenle"),
+                content: const Text(
+                  "Bu alışkanlığı düzenlemek istiyor musunuz?",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text("Hayır"),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text("Evet"),
+                  ),
+                ],
+              );
+            },
+          );
+
+          if (confirm == true) {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.add,
+              arguments: widget.habit,
+            );
+          }
+          return false;
+        }
+
+        // Sola kaydırma → silme
+        return await showDialog<bool>(
           context: context,
           builder: (context) {
             return DeleteDialog(habit: widget.habit);
@@ -44,21 +89,22 @@ class _HabitItemState extends State<HabitItem> {
         );
       },
       onDismissed: (direction) async {
-        final removedHabitTitle = widget.habit.title;
+        if (direction == DismissDirection.startToEnd) {
+          final removedHabitTitle = widget.habit.title;
 
-        Provider.of<IsarService>(
-          context,
-          listen: false,
-        ).removeHabitFromList(widget.habit.id);
+          Provider.of<IsarService>(
+            context,
+            listen: false,
+          ).removeHabitFromList(widget.habit.id);
 
-        await _deleteHabit(widget.habit.id);
+          await _deleteHabit(widget.habit.id);
 
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${removedHabitTitle ?? 'Alışkanlık'} silindi.'),
-          ),
-        );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${removedHabitTitle ?? 'Alışkanlık'} silindi.'),
+            ),
+          );
+        }
       },
       child: Card(
         child: ListTile(
@@ -70,49 +116,33 @@ class _HabitItemState extends State<HabitItem> {
                 )
               : Text(widget.habit.frequencyType.toString().split('.').last),
           trailing: IconButton(
-            onPressed: () {
-              final today = DateTime.now();
-
-              if (widget.habit.frequencyType == FrequencyType.custom) {
-                if (widget.habit.daysOfWeek != null &&
-                    widget.habit.daysOfWeek!.contains(today.weekday)) {
-                  _toggleHabit(widget.habit);
-                }
-                return;
-              }
-
-              final doneToday =
-                  widget.habit.lastCompletedDate != null &&
-                  isToday(widget.habit.lastCompletedDate!);
-
-              if (isHabitChecked(widget.habit, today) && !doneToday) {
-                return;
-              }
-              _toggleHabit(widget.habit);
-            },
-            icon: Icon(
-              widget.habit.frequencyType == FrequencyType.custom
-                  ? (() {
-                      final today = DateTime.now();
-                      if (widget.habit.daysOfWeek == null ||
-                          !widget.habit.daysOfWeek!.contains(today.weekday)) {
-                        return Icons.info;
-                      }
-                      return isHabitChecked(widget.habit, today)
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank;
-                    })()
-                  : isHabitChecked(widget.habit, DateTime.now())
-                  ? (widget.habit.lastCompletedDate != null &&
-                            isToday(widget.habit.lastCompletedDate!))
-                        ? Icons.check_box
-                        : Icons.info
-                  : Icons.check_box_outline_blank,
-            ),
+            onPressed: () => toggleSpecial(),
+            icon: Icon(getHabitIcon(widget.habit)),
           ),
         ),
       ),
     );
+  }
+
+  void toggleSpecial() {
+    final today = DateTime.now();
+
+    if (widget.habit.frequencyType == FrequencyType.custom) {
+      if (widget.habit.daysOfWeek != null &&
+          widget.habit.daysOfWeek!.contains(today.weekday)) {
+        _toggleHabit(widget.habit);
+      }
+      return;
+    }
+
+    final doneToday =
+        widget.habit.lastCompletedDate != null &&
+        isToday(widget.habit.lastCompletedDate!);
+
+    if (isHabitChecked(widget.habit, today) && !doneToday) {
+      return;
+    }
+    _toggleHabit(widget.habit);
   }
 }
 

@@ -19,6 +19,20 @@ class _AddPageState extends State<AddPage> {
   FrequencyType _selectedFrequency = FrequencyType.daily;
   final List<int> _selectedDays = [];
 
+  TimeOfDay? selectedTime;
+
+  void _pickTime(BuildContext context) async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (time != null) {
+      setState(() {
+        selectedTime = time;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +54,15 @@ class _AddPageState extends State<AddPage> {
       frequencyType: _selectedFrequency,
       daysOfWeek: _selectedFrequency == FrequencyType.custom
           ? _selectedDays
+          : null,
+      notificationTime: selectedTime != null
+          ? DateTime(
+              DateTime.now().year,
+              DateTime.now().month,
+              DateTime.now().day,
+              selectedTime!.hour,
+              selectedTime!.minute,
+            )
           : null,
     );
 
@@ -92,7 +115,7 @@ class _AddPageState extends State<AddPage> {
                 border: const OutlineInputBorder(),
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(
-                    color: Colors.purple.shade300,
+                    color: Theme.of(context).colorScheme.primary,
                     width: 2.0,
                   ),
                 ),
@@ -131,9 +154,29 @@ class _AddPageState extends State<AddPage> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               _buildCustomDaySelector(),
-              const SizedBox(height: 20),
             ],
+            SizedBox(height: 20),
 
+            ElevatedButton.icon(
+              icon: const Icon(Icons.access_time),
+              label: Text(
+                selectedTime != null
+                    ? "Alarm: ${selectedTime!.format(context)}"
+                    : "Alarm zamanı seç",
+                style: const TextStyle(fontSize: 24),
+              ),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => _pickTime(context),
+            ),
+            SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 if (_titleController.text.isNotEmpty) {
@@ -144,7 +187,7 @@ class _AddPageState extends State<AddPage> {
                   );
                 }
               },
-              child: const Text('Kaydet'),
+              child: const Text('Kaydet', style: TextStyle(fontSize: 24)),
             ),
           ],
         ),
