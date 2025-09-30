@@ -1,9 +1,9 @@
 // lib/pages/add_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:habit_app/models/habit_model.dart';
 import 'package:habit_app/services/habit_services.dart';
+import 'package:habit_app/pages/home/constant.dart';
 
 class AddPage extends StatefulWidget {
   const AddPage({super.key});
@@ -14,30 +14,65 @@ class AddPage extends StatefulWidget {
 
 class _AddPageState extends State<AddPage> {
   final _titleController = TextEditingController();
-
-  // TextField'ın odaklanmasını kontrol etmek için bir FocusNode kullanın
   final FocusNode _focusNode = FocusNode();
+
+  FrequencyType _selectedFrequency = FrequencyType.daily;
+  final List<int> _selectedDays = [];
 
   @override
   void initState() {
     super.initState();
-    // Sayfa oluşturulduğunda TextField'a odaklan
     _focusNode.requestFocus();
   }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _focusNode.dispose(); // FocusNode'u da dispose etmeyi unutmayın
+    _focusNode.dispose();
     super.dispose();
   }
 
   Future<void> _saveHabit() async {
     final isarService = Provider.of<IsarService>(context, listen: false);
-    final newHabit = HabitModel(title: _titleController.text);
+
+    final newHabit = HabitModel(
+      title: _titleController.text,
+      frequencyType: _selectedFrequency,
+      daysOfWeek: _selectedFrequency == FrequencyType.custom
+          ? _selectedDays
+          : null,
+    );
+
     await isarService.saveHabit(newHabit);
-    // ignore: use_build_context_synchronously
-    Navigator.pop(context);
+
+    if (mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  Widget _buildCustomDaySelector() {
+    return Wrap(
+      spacing: 8,
+      children: List.generate(7, (index) {
+        final dayNum = index + 1;
+        final dayName = dayNames[index];
+        final isSelected = _selectedDays.contains(dayNum);
+
+        return FilterChip(
+          label: Text(dayName),
+          selected: isSelected,
+          onSelected: (selected) {
+            setState(() {
+              if (selected) {
+                _selectedDays.add(dayNum);
+              } else {
+                _selectedDays.remove(dayNum);
+              }
+            });
+          },
+        );
+      }),
+    );
   }
 
   @override
@@ -48,13 +83,13 @@ class _AddPageState extends State<AddPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // Başlık
             TextField(
               controller: _titleController,
-              focusNode: _focusNode, // FocusNode'u TextField'a atayın
+              focusNode: _focusNode,
               decoration: InputDecoration(
                 labelText: 'Alışkanlık Başlığı',
                 border: const OutlineInputBorder(),
-                // Odaklanıldığında kenarlığın rengini değiştirin
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(
                     color: Colors.purple.shade300,
@@ -64,6 +99,41 @@ class _AddPageState extends State<AddPage> {
               ),
             ),
             const SizedBox(height: 20),
+
+            // Frequency seçimi
+            DropdownButtonFormField<FrequencyType>(
+              initialValue: _selectedFrequency,
+              decoration: const InputDecoration(
+                labelText: "Tekrar Sıklığı",
+                border: OutlineInputBorder(),
+              ),
+              items: FrequencyType.values.map((freq) {
+                return DropdownMenuItem(
+                  value: freq,
+                  child: Text(freq.name.toUpperCase()),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedFrequency = value!;
+                  if (_selectedFrequency != FrequencyType.custom) {
+                    _selectedDays.clear();
+                  }
+                });
+              },
+            ),
+            const SizedBox(height: 20),
+
+            // Sadece Custom için gün seçimi
+            if (_selectedFrequency == FrequencyType.custom) ...[
+              const Text(
+                "Seçili Günler:",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              _buildCustomDaySelector(),
+              const SizedBox(height: 20),
+            ],
+
             ElevatedButton(
               onPressed: () {
                 if (_titleController.text.isNotEmpty) {

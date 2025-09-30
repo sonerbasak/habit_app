@@ -22,28 +22,39 @@ const HabitModelSchema = CollectionSchema(
       name: r'currentStreak',
       type: IsarType.long,
     ),
-    r'isCompleted': PropertySchema(
+    r'daysOfWeek': PropertySchema(
       id: 1,
+      name: r'daysOfWeek',
+      type: IsarType.longList,
+    ),
+    r'frequencyType': PropertySchema(
+      id: 2,
+      name: r'frequencyType',
+      type: IsarType.byte,
+      enumMap: _HabitModelfrequencyTypeEnumValueMap,
+    ),
+    r'isCompleted': PropertySchema(
+      id: 3,
       name: r'isCompleted',
       type: IsarType.bool,
     ),
     r'lastCompletedDate': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'lastCompletedDate',
       type: IsarType.dateTime,
     ),
     r'position': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'position',
       type: IsarType.long,
     ),
     r'startDate': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'startDate',
       type: IsarType.dateTime,
     ),
     r'title': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'title',
       type: IsarType.string,
     )
@@ -69,6 +80,12 @@ int _habitModelEstimateSize(
 ) {
   var bytesCount = offsets.last;
   {
+    final value = object.daysOfWeek;
+    if (value != null) {
+      bytesCount += 3 + value.length * 8;
+    }
+  }
+  {
     final value = object.title;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -84,11 +101,13 @@ void _habitModelSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeLong(offsets[0], object.currentStreak);
-  writer.writeBool(offsets[1], object.isCompleted);
-  writer.writeDateTime(offsets[2], object.lastCompletedDate);
-  writer.writeLong(offsets[3], object.position);
-  writer.writeDateTime(offsets[4], object.startDate);
-  writer.writeString(offsets[5], object.title);
+  writer.writeLongList(offsets[1], object.daysOfWeek);
+  writer.writeByte(offsets[2], object.frequencyType.index);
+  writer.writeBool(offsets[3], object.isCompleted);
+  writer.writeDateTime(offsets[4], object.lastCompletedDate);
+  writer.writeLong(offsets[5], object.position);
+  writer.writeDateTime(offsets[6], object.startDate);
+  writer.writeString(offsets[7], object.title);
 }
 
 HabitModel _habitModelDeserialize(
@@ -99,11 +118,15 @@ HabitModel _habitModelDeserialize(
 ) {
   final object = HabitModel(
     currentStreak: reader.readLongOrNull(offsets[0]) ?? 0,
-    isCompleted: reader.readBoolOrNull(offsets[1]) ?? false,
-    lastCompletedDate: reader.readDateTimeOrNull(offsets[2]),
-    position: reader.readLongOrNull(offsets[3]) ?? 0,
-    startDate: reader.readDateTimeOrNull(offsets[4]),
-    title: reader.readStringOrNull(offsets[5]),
+    daysOfWeek: reader.readLongList(offsets[1]),
+    frequencyType: _HabitModelfrequencyTypeValueEnumMap[
+            reader.readByteOrNull(offsets[2])] ??
+        FrequencyType.daily,
+    isCompleted: reader.readBoolOrNull(offsets[3]) ?? false,
+    lastCompletedDate: reader.readDateTimeOrNull(offsets[4]),
+    position: reader.readLongOrNull(offsets[5]) ?? 0,
+    startDate: reader.readDateTimeOrNull(offsets[6]),
+    title: reader.readStringOrNull(offsets[7]),
   );
   object.id = id;
   return object;
@@ -119,19 +142,38 @@ P _habitModelDeserializeProp<P>(
     case 0:
       return (reader.readLongOrNull(offset) ?? 0) as P;
     case 1:
-      return (reader.readBoolOrNull(offset) ?? false) as P;
+      return (reader.readLongList(offset)) as P;
     case 2:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (_HabitModelfrequencyTypeValueEnumMap[
+              reader.readByteOrNull(offset)] ??
+          FrequencyType.daily) as P;
     case 3:
-      return (reader.readLongOrNull(offset) ?? 0) as P;
+      return (reader.readBoolOrNull(offset) ?? false) as P;
     case 4:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
+      return (reader.readLongOrNull(offset) ?? 0) as P;
+    case 6:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 7:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
 }
+
+const _HabitModelfrequencyTypeEnumValueMap = {
+  'daily': 0,
+  'weekly': 1,
+  'monthly': 2,
+  'custom': 3,
+};
+const _HabitModelfrequencyTypeValueEnumMap = {
+  0: FrequencyType.daily,
+  1: FrequencyType.weekly,
+  2: FrequencyType.monthly,
+  3: FrequencyType.custom,
+};
 
 Id _habitModelGetId(HabitModel object) {
   return object.id;
@@ -272,6 +314,225 @@ extension HabitModelQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'currentStreak',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'daysOfWeek',
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'daysOfWeek',
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekElementEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'daysOfWeek',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekElementGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'daysOfWeek',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekElementLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'daysOfWeek',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekElementBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'daysOfWeek',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'daysOfWeek',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'daysOfWeek',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'daysOfWeek',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'daysOfWeek',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'daysOfWeek',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      daysOfWeekLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'daysOfWeek',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      frequencyTypeEqualTo(FrequencyType value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'frequencyType',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      frequencyTypeGreaterThan(
+    FrequencyType value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'frequencyType',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      frequencyTypeLessThan(
+    FrequencyType value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'frequencyType',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterFilterCondition>
+      frequencyTypeBetween(
+    FrequencyType lower,
+    FrequencyType upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'frequencyType',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -711,6 +972,18 @@ extension HabitModelQuerySortBy
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> sortByFrequencyType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'frequencyType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> sortByFrequencyTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'frequencyType', Sort.desc);
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QAfterSortBy> sortByIsCompleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isCompleted', Sort.asc);
@@ -784,6 +1057,18 @@ extension HabitModelQuerySortThenBy
   QueryBuilder<HabitModel, HabitModel, QAfterSortBy> thenByCurrentStreakDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'currentStreak', Sort.desc);
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> thenByFrequencyType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'frequencyType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QAfterSortBy> thenByFrequencyTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'frequencyType', Sort.desc);
     });
   }
 
@@ -869,6 +1154,18 @@ extension HabitModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<HabitModel, HabitModel, QDistinct> distinctByDaysOfWeek() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'daysOfWeek');
+    });
+  }
+
+  QueryBuilder<HabitModel, HabitModel, QDistinct> distinctByFrequencyType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'frequencyType');
+    });
+  }
+
   QueryBuilder<HabitModel, HabitModel, QDistinct> distinctByIsCompleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isCompleted');
@@ -913,6 +1210,19 @@ extension HabitModelQueryProperty
   QueryBuilder<HabitModel, int, QQueryOperations> currentStreakProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'currentStreak');
+    });
+  }
+
+  QueryBuilder<HabitModel, List<int>?, QQueryOperations> daysOfWeekProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'daysOfWeek');
+    });
+  }
+
+  QueryBuilder<HabitModel, FrequencyType, QQueryOperations>
+      frequencyTypeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'frequencyType');
     });
   }
 

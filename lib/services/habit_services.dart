@@ -40,9 +40,21 @@ class IsarService extends ChangeNotifier {
   Future<void> saveHabit(HabitModel habit) async {
     try {
       final isar = await isarDB;
+
+      final lastPosition = _habits.isEmpty ? 0 : _habits.last.position + 1;
+      habit.position = lastPosition;
+
+      if (habit.frequencyType == FrequencyType.custom) {
+        habit.daysOfWeek ??= []; // custom seçildiyse günleri sakla
+      } else {
+        habit.daysOfWeek = null; // diğerlerinde temizle
+      }
+      habit.frequencyType = habit.frequencyType;
+
       await isar.writeTxn(() async {
         await isar.habitModels.put(habit);
       });
+
       await _refreshHabits();
     } catch (e) {
       debugPrint("Error saving habit: $e");
@@ -53,14 +65,15 @@ class IsarService extends ChangeNotifier {
     await _refreshHabits();
   }
 
-  Future<void> toggleHabitCompletion(HabitModel habit) async {
+  Future<int> toggleHabitCompletion(HabitModel habit) async {
     try {
       final isar = await isarDB;
       final updatedHabit = await isar.habitModels.get(habit.id);
-      if (updatedHabit == null) return;
+      if (updatedHabit == null) return 0;
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+
       final lastCheck = updatedHabit.lastCompletedDate != null
           ? DateTime(
               updatedHabit.lastCompletedDate!.year,
@@ -73,40 +86,157 @@ class IsarService extends ChangeNotifier {
           lastCheck != null &&
           lastCheck.isAtSameMomentAs(today)) {
         updatedHabit.isCompleted = false;
-        updatedHabit.currentStreak = (updatedHabit.currentStreak - 1)
-            .clamp(0, double.infinity)
-            .toInt();
-        updatedHabit.lastCompletedDate = today.subtract(
-          const Duration(days: 1),
-        );
-      } else {
-        // Yeni tik işleme
-        if (lastCheck == null) {
-          updatedHabit.currentStreak = 1;
-        } else {
-          final yesterday = today.subtract(const Duration(days: 1));
-          if (lastCheck.isAtSameMomentAs(yesterday)) {
-            updatedHabit.currentStreak++;
-          } else {
-            updatedHabit.currentStreak = 1;
+        updatedHabit.currentStreak = (updatedHabit.currentStreak - 1).toInt();
+
+        int getBackDuration(FrequencyType frequencyType, daysOfWeek) {
+          switch (frequencyType) {
+            case FrequencyType.daily:
+              return 1;
+            case FrequencyType.weekly:
+              return 7;
+            case FrequencyType.monthly:
+              return 30;
+            case FrequencyType.custom:
+              if (daysOfWeek == null || daysOfWeek.isEmpty) {
+                return 1;
+              }
+
+              for (int i = 1; i <= 7; i++) {
+                final checkDate = today.subtract(Duration(days: i));
+                if (daysOfWeek.contains(checkDate.weekday)) {
+                  return i;
+                }
+              }
+              return 1;
           }
         }
+
+        final backDuration = getBackDuration(
+          updatedHabit.frequencyType,
+          habit.daysOfWeek,
+        );
+
+        updatedHabit.lastCompletedDate = today.subtract(
+          Duration(days: backDuration),
+        ); // geri alındı
+      } else {
+        int newStreak = 1;
+
+        if (lastCheck != null) {
+          switch (updatedHabit.frequencyType) {
+            case FrequencyType.daily:
+              final diffDays = today.difference(lastCheck).inDays;
+              if (diffDays == 1) {
+                newStreak = updatedHabit.currentStreak + 1;
+              } else if (diffDays < 1) {
+                newStreak = updatedHabit.currentStreak; // aynı gün
+              } else {
+                newStreak = 1; // 2+ gün fark varsa reset
+              }
+              break;
+
+            case FrequencyType.weekly:
+              final todayWeek = getWeekNumber(today);
+              final lastWeek = getWeekNumber(lastCheck);
+
+              if (today.year == lastCheck.year) {
+                if (todayWeek == lastWeek) {
+                  // Aynı hafta → streak devam
+                  newStreak = updatedHabit.currentStreak;
+                } else if (todayWeek == lastWeek + 1) {
+                  // Sonraki hafta → streak +1
+                  newStreak = updatedHabit.currentStreak + 1;
+                } else {
+                  // 2+ hafta boş geçti → reset
+                  newStreak = 1;
+                }
+              } else {
+                // Farklı yıl için de aynı mantıkla hesaplanabilir
+                final totalWeeksLastYear = getWeekNumber(
+                  DateTime(lastCheck.year, 12, 31),
+                );
+                final weekDiff =
+                    (today.year - lastCheck.year) * totalWeeksLastYear +
+                    (todayWeek - lastWeek);
+
+                if (weekDiff == 1) {
+                  newStreak = updatedHabit.currentStreak + 1;
+                } else if (weekDiff < 1) {
+                  newStreak = updatedHabit.currentStreak;
+                } else {
+                  newStreak = 1;
+                }
+              }
+              break;
+
+            case FrequencyType.monthly:
+              final diffMonths =
+                  (today.year - lastCheck.year) * 12 +
+                  today.month -
+                  lastCheck.month;
+              if (diffMonths == 1) {
+                newStreak = updatedHabit.currentStreak + 1;
+              } else if (diffMonths < 1) {
+                newStreak = updatedHabit.currentStreak; // aynı ay
+              } else {
+                newStreak = 1; // 2+ ay fark
+              }
+              break;
+
+            case FrequencyType.custom:
+              if (updatedHabit.daysOfWeek != null &&
+                  updatedHabit.daysOfWeek!.isNotEmpty) {
+                final todayWeekday = today.weekday;
+
+                if (updatedHabit.daysOfWeek!.contains(todayWeekday)) {
+                  // Bugünkü gün seçili
+                  final sortedDays = List<int>.from(updatedHabit.daysOfWeek!)
+                    ..sort();
+
+                  // Bir önceki custom günü bul
+                  int lastCustomDay = sortedDays.last;
+                  for (int day in sortedDays) {
+                    if (day < todayWeekday) {
+                      lastCustomDay = day;
+                    }
+                  }
+
+                  final diffDays = (todayWeekday - lastCustomDay + 7) % 7;
+                  final lastCheckDate = DateTime(
+                    updatedHabit.lastCompletedDate!.year,
+                    updatedHabit.lastCompletedDate!.month,
+                    updatedHabit.lastCompletedDate!.day,
+                  );
+
+                  if (diffDays == today.difference(lastCheckDate).inDays) {
+                    newStreak = updatedHabit.currentStreak + 1;
+                  } else if (today.isAtSameMomentAs(lastCheckDate)) {
+                    newStreak = updatedHabit.currentStreak;
+                  } else {
+                    newStreak = 1;
+                  }
+                } else {
+                  newStreak = updatedHabit.currentStreak;
+                }
+              }
+              break;
+          }
+        }
+
         updatedHabit.isCompleted = true;
-        updatedHabit.lastCompletedDate = now;
+        updatedHabit.currentStreak = newStreak;
+        updatedHabit.lastCompletedDate = today;
       }
 
       await isar.writeTxn(() async {
         await isar.habitModels.put(updatedHabit);
       });
 
-      final check = await isar.habitModels.get(updatedHabit.id);
-      debugPrint(
-        'After put -> isCompleted: ${check?.isCompleted}, streak: ${check?.currentStreak}',
-      );
-
       await _refreshHabits();
+      return 1;
     } catch (e) {
       debugPrint("Error toggling habit: $e");
+      return 0;
     }
   }
 
@@ -176,5 +306,11 @@ class IsarService extends ChangeNotifier {
     _habits.removeWhere((habit) => habit.id == id);
 
     notifyListeners();
+  }
+
+  int getWeekNumber(DateTime date) {
+    final firstDayOfYear = DateTime(date.year, 1, 1);
+    final diffDays = date.difference(firstDayOfYear).inDays;
+    return ((diffDays + firstDayOfYear.weekday - 1) / 7).floor() + 1;
   }
 }

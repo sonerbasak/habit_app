@@ -2,6 +2,8 @@ import 'package:isar/isar.dart';
 
 part 'habit_model.g.dart';
 
+enum FrequencyType { daily, weekly, monthly, custom }
+
 @collection
 class HabitModel {
   Id id = Isar.autoIncrement;
@@ -14,6 +16,11 @@ class HabitModel {
 
   int position = 0;
 
+  @enumerated
+  FrequencyType frequencyType = FrequencyType.daily;
+
+  List<int>? daysOfWeek;
+
   HabitModel({
     this.title,
     this.startDate,
@@ -21,10 +28,15 @@ class HabitModel {
     this.lastCompletedDate,
     this.isCompleted = false,
     this.position = 0,
+    this.frequencyType = FrequencyType.daily,
+    this.daysOfWeek,
   });
 
   @override
   String toString() {
-    return 'HabitModel(id: $id, title: $title, currentStreak: $currentStreak, isCompleted: $isCompleted, lastCompletedDate: $lastCompletedDate, position: $position)';
+    return 'HabitModel(id: $id, title: $title, '
+        'frequencyType: $frequencyType, daysOfWeek: $daysOfWeek, '
+        'currentStreak: $currentStreak, isCompleted: $isCompleted, '
+        'lastCompletedDate: $lastCompletedDate, position: $position)';
   }
 }
