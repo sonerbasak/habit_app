@@ -62,7 +62,7 @@ class _HabitItemState extends State<HabitItem> {
       },
       child: Card(
         child: ListTile(
-          title: Text(widget.habit.lastCompletedDate?.toString() ?? ''),
+          title: Text(widget.habit.title ?? ''),
           leading: Chip(label: Text(widget.habit.currentStreak.toString())),
           subtitle: widget.habit.frequencyType == FrequencyType.custom
               ? Text(

@@ -25,10 +25,8 @@ class IsarService extends ChangeNotifier {
     }
   }
 
-  // Alışkanlıkları tutacak private liste
   List<HabitModel> _habits = [];
 
-  // Diğer sınıfların erişebilmesi için getter
   List<HabitModel> get habits => _habits;
 
   Future<void> _refreshHabits() async {
@@ -45,9 +43,9 @@ class IsarService extends ChangeNotifier {
       habit.position = lastPosition;
 
       if (habit.frequencyType == FrequencyType.custom) {
-        habit.daysOfWeek ??= []; // custom seçildiyse günleri sakla
+        habit.daysOfWeek ??= [];
       } else {
-        habit.daysOfWeek = null; // diğerlerinde temizle
+        habit.daysOfWeek = null;
       }
       habit.frequencyType = habit.frequencyType;
 
@@ -118,7 +116,7 @@ class IsarService extends ChangeNotifier {
 
         updatedHabit.lastCompletedDate = today.subtract(
           Duration(days: backDuration),
-        ); // geri alındı
+        );
       } else {
         int newStreak = 1;
 
@@ -129,9 +127,9 @@ class IsarService extends ChangeNotifier {
               if (diffDays == 1) {
                 newStreak = updatedHabit.currentStreak + 1;
               } else if (diffDays < 1) {
-                newStreak = updatedHabit.currentStreak; // aynı gün
+                newStreak = updatedHabit.currentStreak;
               } else {
-                newStreak = 1; // 2+ gün fark varsa reset
+                newStreak = 1;
               }
               break;
 
@@ -141,17 +139,13 @@ class IsarService extends ChangeNotifier {
 
               if (today.year == lastCheck.year) {
                 if (todayWeek == lastWeek) {
-                  // Aynı hafta → streak devam
                   newStreak = updatedHabit.currentStreak;
                 } else if (todayWeek == lastWeek + 1) {
-                  // Sonraki hafta → streak +1
                   newStreak = updatedHabit.currentStreak + 1;
                 } else {
-                  // 2+ hafta boş geçti → reset
                   newStreak = 1;
                 }
               } else {
-                // Farklı yıl için de aynı mantıkla hesaplanabilir
                 final totalWeeksLastYear = getWeekNumber(
                   DateTime(lastCheck.year, 12, 31),
                 );
@@ -177,9 +171,9 @@ class IsarService extends ChangeNotifier {
               if (diffMonths == 1) {
                 newStreak = updatedHabit.currentStreak + 1;
               } else if (diffMonths < 1) {
-                newStreak = updatedHabit.currentStreak; // aynı ay
+                newStreak = updatedHabit.currentStreak;
               } else {
-                newStreak = 1; // 2+ ay fark
+                newStreak = 1;
               }
               break;
 
@@ -189,11 +183,9 @@ class IsarService extends ChangeNotifier {
                 final todayWeekday = today.weekday;
 
                 if (updatedHabit.daysOfWeek!.contains(todayWeekday)) {
-                  // Bugünkü gün seçili
                   final sortedDays = List<int>.from(updatedHabit.daysOfWeek!)
                     ..sort();
 
-                  // Bir önceki custom günü bul
                   int lastCustomDay = sortedDays.last;
                   for (int day in sortedDays) {
                     if (day < todayWeekday) {
@@ -241,28 +233,21 @@ class IsarService extends ChangeNotifier {
   }
 
   Future<void> reorderHabits(int oldIndex, int newIndex) async {
-    // `newIndex`'i ReorderableListView'ın beklentisine uygun şekilde ayarlayın.
-    // Bir elemanı aşağıdan yukarıya taşıyorsanız, indeksler kayacağı için
-    // yeni konumu 1 azaltmanız gerekir.
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
 
-    // Bu kısımda sadece listenin içindeki elemanların sırasını değiştirin.
     final habitToMove = _habits.removeAt(oldIndex);
     _habits.insert(newIndex, habitToMove);
 
-    // Veri tabanını güncelleme işlemi
     final isar = await isarDB;
     await isar.writeTxn(() async {
       for (var i = 0; i < _habits.length; i++) {
-        // Her bir habit'in pozisyonunu yeni sıralamasına göre güncelleyin
         _habits[i].position = i;
         await isar.habitModels.put(_habits[i]);
       }
     });
 
-    // Listener'ları (örneğin UI'ı) güncelleyerek listenin yeniden çizilmesini sağlayın.
     notifyListeners();
   }
 
