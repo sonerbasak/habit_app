@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:habit_app/models/habit_model.dart';
 import 'package:habit_app/pages/home/widgets/delete_dialog.dart';
+import 'package:habit_app/pages/home/widgets/edit_dialog.dart';
 import 'package:habit_app/pages/home/widgets/habit_icon_helper.dart';
 import 'package:habit_app/routes/app_routes.dart';
 import 'package:habit_app/services/habit_services.dart';
@@ -34,39 +35,24 @@ class _HabitItemState extends State<HabitItem> {
       key: Key(widget.habit.id.toString()),
       direction: DismissDirection.horizontal,
       background: Container(
-        color: Colors.red,
+        color: Colors.lightBlueAccent,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 24),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      secondaryBackground: Container(
-        color: Colors.lightBlueAccent,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
         child: const Icon(Icons.edit, color: Colors.white),
       ),
+      secondaryBackground: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
       confirmDismiss: (direction) async {
-        if (direction == DismissDirection.endToStart) {
-          // Sağdan sola kaydırma → düzenleme
+        if (direction == DismissDirection.startToEnd) {
+          // Sağa kaydır → Edit
           final confirm = await showDialog<bool>(
             context: context,
             builder: (context) {
-              return AlertDialog(
-                title: const Text("Düzenle"),
-                content: const Text(
-                  "Bu alışkanlığı düzenlemek istiyor musunuz?",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text("Hayır"),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text("Evet"),
-                  ),
-                ],
-              );
+              return EditDialog(habit: widget.habit);
             },
           );
 
@@ -77,19 +63,30 @@ class _HabitItemState extends State<HabitItem> {
               arguments: widget.habit,
             );
           }
+          return false; // Edit yapıldığında kartı dismiss etme
+        }
+
+        if (direction == DismissDirection.endToStart) {
+          // Sola kaydır → Delete
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (context) {
+              return DeleteDialog(habit: widget.habit);
+            },
+          );
+
+          if (confirm == true) {
+            // burada gerçek silme işlemi yapılacak
+            return true;
+          }
           return false;
         }
 
-        // Sola kaydırma → silme
-        return await showDialog<bool>(
-          context: context,
-          builder: (context) {
-            return DeleteDialog(habit: widget.habit);
-          },
-        );
+        return false;
       },
       onDismissed: (direction) async {
-        if (direction == DismissDirection.startToEnd) {
+        if (direction == DismissDirection.endToStart) {
+          // Delete işlemi onaylandıysa buraya düşer
           final removedHabitTitle = widget.habit.title;
 
           Provider.of<IsarService>(
@@ -106,9 +103,11 @@ class _HabitItemState extends State<HabitItem> {
           );
         }
       },
+
       child: Card(
         child: ListTile(
-          title: Text(widget.habit.title ?? ''),
+          title: Text(widget.habit.notificationTime.toString()),
+          //Text(widget.habit.title ?? ''),
           leading: Chip(label: Text(widget.habit.currentStreak.toString())),
           subtitle: widget.habit.frequencyType == FrequencyType.custom
               ? Text(

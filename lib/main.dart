@@ -8,7 +8,7 @@ import 'package:habit_app/services/theme_services.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await NotificationService.init(); // bildirim servisini başlat
+  await NotificationService.init();
 
   runApp(
     MultiProvider(

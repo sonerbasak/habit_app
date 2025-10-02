@@ -79,7 +79,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     final isarService = Provider.of<IsarService>(context, listen: false);
     isarService.resetDailyHabits();
-    isarService.getAllHabits();
+    isarService.refreshHabits();
   }
 
   @override

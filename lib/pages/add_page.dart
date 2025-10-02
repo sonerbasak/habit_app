@@ -21,6 +21,8 @@ class _AddPageState extends State<AddPage> {
 
   TimeOfDay? selectedTime;
 
+  HabitModel? _editingHabit;
+
   void _pickTime(BuildContext context) async {
     final time = await showTimePicker(
       context: context,
@@ -30,6 +32,30 @@ class _AddPageState extends State<AddPage> {
       setState(() {
         selectedTime = time;
       });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_editingHabit == null) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is HabitModel) {
+        _editingHabit = args;
+
+        _titleController.text = _editingHabit!.title ?? '';
+        _selectedFrequency = _editingHabit!.frequencyType;
+        _selectedDays.clear();
+        if (_editingHabit!.daysOfWeek != null) {
+          _selectedDays.addAll(List.from(_editingHabit!.daysOfWeek!));
+        }
+        if (_editingHabit!.notificationTime != null) {
+          selectedTime = TimeOfDay.fromDateTime(
+            _editingHabit!.notificationTime!,
+          );
+        }
+      }
     }
   }
 
@@ -49,24 +75,66 @@ class _AddPageState extends State<AddPage> {
   Future<void> _saveHabit() async {
     final isarService = Provider.of<IsarService>(context, listen: false);
 
-    final newHabit = HabitModel(
-      title: _titleController.text,
-      frequencyType: _selectedFrequency,
-      daysOfWeek: _selectedFrequency == FrequencyType.custom
-          ? _selectedDays
-          : null,
-      notificationTime: selectedTime != null
-          ? DateTime(
-              DateTime.now().year,
-              DateTime.now().month,
-              DateTime.now().day,
-              selectedTime!.hour,
-              selectedTime!.minute,
-            )
-          : null,
-    );
+    if (_titleController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lütfen bir başlık girin.')));
+      return;
+    }
 
-    await isarService.saveHabit(newHabit);
+    // YENİ MANTIK: Bildirim zamanını hesapla ve geçmişteyse ileri taşı
+    DateTime? scheduledDateTime;
+
+    if (selectedTime != null) {
+      // 1. Seçilen saati, bugünün tarihiyle birleştir:
+      scheduledDateTime = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+        selectedTime!.hour,
+        selectedTime!.minute,
+      );
+
+      // 2. Eğer bu zaman şimdiden geçmişse, tarihi bir gün ileri sar:
+      if (scheduledDateTime.isBefore(DateTime.now())) {
+        scheduledDateTime = scheduledDateTime.add(const Duration(days: 1));
+        debugPrint(
+          "Seçilen saat geçmişte olduğu için bildirim yarın ${scheduledDateTime.hour}:${scheduledDateTime.minute} olarak planlandı.",
+        );
+      } else {
+        debugPrint(
+          "Bildirim bugün ${scheduledDateTime.hour}:${scheduledDateTime.minute} olarak planlandı.",
+        );
+      }
+    }
+
+    if (_editingHabit == null) {
+      // YENİ ALIŞKANLIK
+      final newHabit = HabitModel(
+        title: _titleController.text,
+        frequencyType: _selectedFrequency,
+        daysOfWeek: _selectedFrequency == FrequencyType.custom
+            ? _selectedDays
+            : null,
+        // Düzeltilmiş değişken kullanılıyor
+        notificationTime: scheduledDateTime,
+      );
+
+      await isarService.saveHabit(newHabit, isUpdate: false);
+    } else {
+      // ALIŞKANLIK GÜNCELLEME
+      _editingHabit!
+        ..title = _titleController.text
+        ..frequencyType = _selectedFrequency
+        ..daysOfWeek = _selectedFrequency == FrequencyType.custom
+            ? _selectedDays
+            : null
+        // Düzeltilmiş değişken kullanılıyor
+        ..notificationTime = scheduledDateTime;
+
+      await isarService.saveHabit(_editingHabit!, isUpdate: true);
+      debugPrint("Alışkanlık güncellendi: ${_editingHabit!.title}");
+    }
 
     if (mounted) {
       Navigator.pop(context);
@@ -100,6 +168,7 @@ class _AddPageState extends State<AddPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = _editingHabit != null;
     return Scaffold(
       appBar: AppBar(title: const Text("Yeni Alışkanlık Ekle")),
       body: Padding(
@@ -110,6 +179,8 @@ class _AddPageState extends State<AddPage> {
             TextField(
               controller: _titleController,
               focusNode: _focusNode,
+              readOnly: isEditing,
+              style: isEditing ? const TextStyle(color: Colors.grey) : null,
               decoration: InputDecoration(
                 labelText: 'Alışkanlık Başlığı',
                 border: const OutlineInputBorder(),

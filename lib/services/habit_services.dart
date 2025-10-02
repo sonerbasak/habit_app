@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:habit_app/services/notification_service.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:habit_app/models/habit_model.dart';
+// HabitModel'in FrequencyType enum'unu içerdiğini varsayıyorum.
 
 class IsarService extends ChangeNotifier {
   late Future<Isar> isarDB;
@@ -14,6 +16,7 @@ class IsarService extends ChangeNotifier {
     try {
       if (Isar.instanceNames.isEmpty) {
         final dir = await getApplicationDocumentsDirectory();
+        // Lütfen buradaki [HabitModelSchema] ve diğer şemaların doğru olduğunu kontrol edin.
         final db = await Isar.open([HabitModelSchema], directory: dir.path);
         return db;
       } else {
@@ -29,38 +32,54 @@ class IsarService extends ChangeNotifier {
 
   List<HabitModel> get habits => _habits;
 
-  Future<void> _refreshHabits() async {
+  Future<void> refreshHabits() async {
     final isar = await isarDB;
     _habits = await isar.habitModels.where().sortByPosition().findAll();
     notifyListeners();
   }
 
-  Future<void> saveHabit(HabitModel habit) async {
+  Future<void> saveHabit(HabitModel habit, {bool isUpdate = false}) async {
     try {
       final isar = await isarDB;
 
-      final lastPosition = _habits.isEmpty ? 0 : _habits.last.position + 1;
-      habit.position = lastPosition;
+      if (!isUpdate) {
+        final lastPosition = _habits.isEmpty ? 0 : _habits.last.position + 1;
+        habit.position = lastPosition;
+        debugPrint("New habit position set: ${habit.position}");
+      }
 
+      // Frekans tipi kontrolü (özelleştirilmiş günlerin temizlenmesi)
       if (habit.frequencyType == FrequencyType.custom) {
         habit.daysOfWeek ??= [];
       } else {
         habit.daysOfWeek = null;
       }
-      habit.frequencyType = habit.frequencyType;
 
+      // Isar veritabanına kaydetme
       await isar.writeTxn(() async {
         await isar.habitModels.put(habit);
       });
 
-      await _refreshHabits();
+      await refreshHabits();
     } catch (e) {
       debugPrint("Error saving habit: $e");
     }
-  }
 
-  Future<void> getAllHabits() async {
-    await _refreshHabits();
+    // BİLDİRİM PLANLAMA
+    if (habit.notificationTime != null) {
+      // Önceki bildirimleri iptal et
+      await NotificationService.cancelNotification(habit.id);
+
+      await NotificationService.showScheduledNotification(
+        id: habit.id,
+        title: habit.title ?? "Hatırlatma",
+        body: "Bugünkü alışkanlığını tamamlama zamanı!",
+        scheduledDate: habit.notificationTime!,
+      );
+    } else {
+      // Bildirim saati kaldırıldıysa bildirimi iptal et
+      await NotificationService.cancelNotification(habit.id);
+    }
   }
 
   Future<int> toggleHabitCompletion(HabitModel habit) async {
@@ -224,7 +243,7 @@ class IsarService extends ChangeNotifier {
         await isar.habitModels.put(updatedHabit);
       });
 
-      await _refreshHabits();
+      await refreshHabits();
       return 1;
     } catch (e) {
       debugPrint("Error toggling habit: $e");
@@ -253,10 +272,13 @@ class IsarService extends ChangeNotifier {
 
   Future<void> deleteHabit(int id) async {
     final isar = await isarDB;
+    // Bildirimi iptal etmeyi unutmayın
+    await NotificationService.cancelNotification(id);
+
     await isar.writeTxn(() async {
       await isar.habitModels.delete(id);
     });
-    await _refreshHabits();
+    await refreshHabits();
   }
 
   Future<void> resetDailyHabits() async {
@@ -284,12 +306,11 @@ class IsarService extends ChangeNotifier {
       }
     });
 
-    await _refreshHabits();
+    await refreshHabits();
   }
 
   void removeHabitFromList(int id) {
     _habits.removeWhere((habit) => habit.id == id);
-
     notifyListeners();
   }
 
