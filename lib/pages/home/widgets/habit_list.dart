@@ -26,7 +26,14 @@ class _HabitListState extends State<HabitList> {
               .where((h) => h.frequencyType == widget.filterType)
               .toList();
         }
-        debugPrint("Filtered habits count: ${habits.length}");
+
+        if (widget.hideCompleted) {
+          habits = habits.where((h) {
+            final icon = getHabitIcon(h);
+            // Icons.check_box veya Icons.info ikonuna sahip olmayanları göster.
+            return icon != Icons.check_box && icon != Icons.info;
+          }).toList();
+        }
 
         if (habits.isEmpty) {
           return const Center(child: Text("Please add a habit"));

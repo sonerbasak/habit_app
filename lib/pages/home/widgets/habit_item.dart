@@ -89,11 +89,8 @@ class _HabitItemState extends State<HabitItem> {
           // Delete işlemi onaylandıysa buraya düşer
           final removedHabitTitle = widget.habit.title;
 
-          Provider.of<IsarService>(
-            context,
-            listen: false,
-          ).removeHabitFromList(widget.habit.id);
-
+          // Artık sadece asıl silme işlemini çağırıyoruz.
+          // IsarService içindeki deleteHabit metodu, refreshHabits() çağrısını yaparak UI'ı zaten güncelleyecek.
           await _deleteHabit(widget.habit.id);
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -106,7 +103,7 @@ class _HabitItemState extends State<HabitItem> {
 
       child: Card(
         child: ListTile(
-          title: Text(widget.habit.notificationTime.toString()),
+          title: Text(widget.habit.title ?? ''),
           //Text(widget.habit.title ?? ''),
           leading: Chip(label: Text(widget.habit.currentStreak.toString())),
           subtitle: widget.habit.frequencyType == FrequencyType.custom

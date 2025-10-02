@@ -99,137 +99,53 @@ class IsarService extends ChangeNotifier {
             )
           : null;
 
+      // Alışkanlığı Geri Al (Undo) Kısmı
       if (updatedHabit.isCompleted &&
           lastCheck != null &&
           lastCheck.isAtSameMomentAs(today)) {
         updatedHabit.isCompleted = false;
         updatedHabit.currentStreak = (updatedHabit.currentStreak - 1).toInt();
 
-        int getBackDuration(FrequencyType frequencyType, daysOfWeek) {
-          switch (frequencyType) {
-            case FrequencyType.daily:
-              return 1;
-            case FrequencyType.weekly:
-              return 7;
-            case FrequencyType.monthly:
-              return 30;
-            case FrequencyType.custom:
-              if (daysOfWeek == null || daysOfWeek.isEmpty) {
-                return 1;
-              }
-
-              for (int i = 1; i <= 7; i++) {
-                final checkDate = today.subtract(Duration(days: i));
-                if (daysOfWeek.contains(checkDate.weekday)) {
-                  return i;
-                }
-              }
-              return 1;
-          }
-        }
-
-        final backDuration = getBackDuration(
+        // Geri alma (Undo) mantığını buraya taşıdık.
+        final backDuration = _getUndoDuration(
           updatedHabit.frequencyType,
           habit.daysOfWeek,
+          today,
         );
 
         updatedHabit.lastCompletedDate = today.subtract(
           Duration(days: backDuration),
         );
-      } else {
+      }
+      // Alışkanlığı Tamamlama Kısmı
+      else {
         int newStreak = 1;
 
         if (lastCheck != null) {
           switch (updatedHabit.frequencyType) {
             case FrequencyType.daily:
-              final diffDays = today.difference(lastCheck).inDays;
-              if (diffDays == 1) {
-                newStreak = updatedHabit.currentStreak + 1;
-              } else if (diffDays < 1) {
-                newStreak = updatedHabit.currentStreak;
-              } else {
-                newStreak = 1;
-              }
+              newStreak = _calculateDailyStreak(updatedHabit, today, lastCheck);
               break;
-
             case FrequencyType.weekly:
-              final todayWeek = getWeekNumber(today);
-              final lastWeek = getWeekNumber(lastCheck);
-
-              if (today.year == lastCheck.year) {
-                if (todayWeek == lastWeek) {
-                  newStreak = updatedHabit.currentStreak;
-                } else if (todayWeek == lastWeek + 1) {
-                  newStreak = updatedHabit.currentStreak + 1;
-                } else {
-                  newStreak = 1;
-                }
-              } else {
-                final totalWeeksLastYear = getWeekNumber(
-                  DateTime(lastCheck.year, 12, 31),
-                );
-                final weekDiff =
-                    (today.year - lastCheck.year) * totalWeeksLastYear +
-                    (todayWeek - lastWeek);
-
-                if (weekDiff == 1) {
-                  newStreak = updatedHabit.currentStreak + 1;
-                } else if (weekDiff < 1) {
-                  newStreak = updatedHabit.currentStreak;
-                } else {
-                  newStreak = 1;
-                }
-              }
+              newStreak = _calculateWeeklyStreak(
+                updatedHabit,
+                today,
+                lastCheck,
+              );
               break;
-
             case FrequencyType.monthly:
-              final diffMonths =
-                  (today.year - lastCheck.year) * 12 +
-                  today.month -
-                  lastCheck.month;
-              if (diffMonths == 1) {
-                newStreak = updatedHabit.currentStreak + 1;
-              } else if (diffMonths < 1) {
-                newStreak = updatedHabit.currentStreak;
-              } else {
-                newStreak = 1;
-              }
+              newStreak = _calculateMonthlyStreak(
+                updatedHabit,
+                today,
+                lastCheck,
+              );
               break;
-
             case FrequencyType.custom:
-              if (updatedHabit.daysOfWeek != null &&
-                  updatedHabit.daysOfWeek!.isNotEmpty) {
-                final todayWeekday = today.weekday;
-
-                if (updatedHabit.daysOfWeek!.contains(todayWeekday)) {
-                  final sortedDays = List<int>.from(updatedHabit.daysOfWeek!)
-                    ..sort();
-
-                  int lastCustomDay = sortedDays.last;
-                  for (int day in sortedDays) {
-                    if (day < todayWeekday) {
-                      lastCustomDay = day;
-                    }
-                  }
-
-                  final diffDays = (todayWeekday - lastCustomDay + 7) % 7;
-                  final lastCheckDate = DateTime(
-                    updatedHabit.lastCompletedDate!.year,
-                    updatedHabit.lastCompletedDate!.month,
-                    updatedHabit.lastCompletedDate!.day,
-                  );
-
-                  if (diffDays == today.difference(lastCheckDate).inDays) {
-                    newStreak = updatedHabit.currentStreak + 1;
-                  } else if (today.isAtSameMomentAs(lastCheckDate)) {
-                    newStreak = updatedHabit.currentStreak;
-                  } else {
-                    newStreak = 1;
-                  }
-                } else {
-                  newStreak = updatedHabit.currentStreak;
-                }
-              }
+              newStreak = _calculateCustomStreak(
+                updatedHabit,
+                today,
+                lastCheck,
+              );
               break;
           }
         }
@@ -249,6 +165,147 @@ class IsarService extends ChangeNotifier {
       debugPrint("Error toggling habit: $e");
       return 0;
     }
+  }
+
+  int _getUndoDuration(
+    FrequencyType frequencyType,
+    List<int>? daysOfWeek,
+    DateTime today,
+  ) {
+    switch (frequencyType) {
+      case FrequencyType.daily:
+        return 1;
+      case FrequencyType.weekly:
+        // Haftalık streak'te geri alma, bir önceki tamamlanan haftanın son gününe gitmelidir.
+        // Basitlik için bir hafta geriye gidiyoruz.
+        return 7;
+      case FrequencyType.monthly:
+        // Basitlik için bir ay geriye gidiyoruz (Ortalama 30 gün).
+        return 30;
+      case FrequencyType.custom:
+        if (daysOfWeek == null || daysOfWeek.isEmpty) {
+          return 1;
+        }
+
+        // En yakın önceki custom günü bul
+        for (int i = 1; i <= 7; i++) {
+          final checkDate = today.subtract(Duration(days: i));
+          if (daysOfWeek.contains(checkDate.weekday)) {
+            return i;
+          }
+        }
+        return 1; // Bulunamazsa varsayılan 1 gün
+    }
+  }
+
+  int _calculateDailyStreak(
+    HabitModel habit,
+    DateTime today,
+    DateTime lastCheck,
+  ) {
+    final diffDays = today.difference(lastCheck).inDays;
+    if (diffDays == 1) {
+      return habit.currentStreak + 1;
+    } else if (diffDays < 1) {
+      return habit.currentStreak;
+    } else {
+      return 1;
+    }
+  }
+
+  int _calculateWeeklyStreak(
+    HabitModel habit,
+    DateTime today,
+    DateTime lastCheck,
+  ) {
+    // Haftalık streak hesaplamanız karmaşık olduğu için, sadece ilgili mantığı buraya taşıdık.
+    // **NOT: Bu metodun ISO 8601'e göre tam olarak test edilmesi gerekir.**
+    final todayWeek = getWeekNumber(today);
+    final lastWeek = getWeekNumber(lastCheck);
+
+    if (today.year == lastCheck.year) {
+      if (todayWeek == lastWeek) {
+        return habit.currentStreak;
+      } else if (todayWeek == lastWeek + 1) {
+        return habit.currentStreak + 1;
+      } else {
+        return 1;
+      }
+    } else {
+      final totalWeeksLastYear = getWeekNumber(
+        DateTime(lastCheck.year, 12, 31),
+      );
+      final weekDiff =
+          (today.year - lastCheck.year) * totalWeeksLastYear +
+          (todayWeek - lastWeek);
+
+      if (weekDiff == 1) {
+        return habit.currentStreak + 1;
+      } else if (weekDiff < 1) {
+        return habit.currentStreak;
+      } else {
+        return 1;
+      }
+    }
+  }
+
+  int _calculateMonthlyStreak(
+    HabitModel habit,
+    DateTime today,
+    DateTime lastCheck,
+  ) {
+    final diffMonths =
+        (today.year - lastCheck.year) * 12 + today.month - lastCheck.month;
+    if (diffMonths == 1) {
+      return habit.currentStreak + 1;
+    } else if (diffMonths < 1) {
+      return habit.currentStreak;
+    } else {
+      return 1;
+    }
+  }
+
+  int _calculateCustomStreak(
+    HabitModel habit,
+    DateTime today,
+    DateTime lastCheck,
+  ) {
+    if (habit.daysOfWeek != null && habit.daysOfWeek!.isNotEmpty) {
+      final todayWeekday = today.weekday;
+
+      if (habit.daysOfWeek!.contains(todayWeekday)) {
+        final sortedDays = List<int>.from(habit.daysOfWeek!)..sort();
+
+        // Önceki tamamlanması gereken custom günü bul (lastCustomDay mantığı)
+        int lastCustomDayWeekday = sortedDays.last;
+        for (int day in sortedDays.reversed) {
+          if (day < todayWeekday) {
+            lastCustomDayWeekday = day;
+            break;
+          }
+        }
+
+        // Hafta döngüsünde kaç gün önce olması gerektiğini hesapla
+        final diffDays = (todayWeekday - lastCustomDayWeekday + 7) % 7;
+
+        final lastCheckDate = DateTime(
+          habit.lastCompletedDate!.year,
+          habit.lastCompletedDate!.month,
+          habit.lastCompletedDate!.day,
+        );
+
+        if (diffDays == today.difference(lastCheckDate).inDays) {
+          return habit.currentStreak + 1;
+        } else if (today.isAtSameMomentAs(lastCheckDate)) {
+          return habit.currentStreak;
+        } else {
+          return 1;
+        }
+      } else {
+        return habit.currentStreak;
+      }
+    }
+    return habit.currentStreak;
   }
 
   Future<void> reorderHabits(int oldIndex, int newIndex) async {
@@ -309,35 +366,9 @@ class IsarService extends ChangeNotifier {
     await refreshHabits();
   }
 
-  void removeHabitFromList(int id) {
-    _habits.removeWhere((habit) => habit.id == id);
-    notifyListeners();
-  }
-
   int getWeekNumber(DateTime date) {
     final firstDayOfYear = DateTime(date.year, 1, 1);
     final diffDays = date.difference(firstDayOfYear).inDays;
     return ((diffDays + firstDayOfYear.weekday - 1) / 7).floor() + 1;
-  }
-
-  FrequencyType? _currentFilter;
-
-  void filterFrequencyType(FrequencyType type) {
-    _currentFilter = type;
-    notifyListeners();
-  }
-
-  void clearFilter() {
-    _currentFilter = null;
-    notifyListeners();
-  }
-
-  List<HabitModel> get filteredHabits {
-    if (_currentFilter == null) {
-      return _habits;
-    }
-    return _habits
-        .where((habit) => habit.frequencyType == _currentFilter)
-        .toList();
   }
 }

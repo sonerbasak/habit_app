@@ -29,45 +29,64 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _filterType = type;
     });
-    Navigator.pop(context);
   }
 
   void _showFilterSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          height: MediaQuery.of(context).size.height * 0.4,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Filtrele",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        return SafeArea(
+          child: SizedBox(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Filtrele",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    title: const Text("Tümü"),
+                    onTap: () {
+                      _filterHabits(null);
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("Daily"),
+                    onTap: () {
+                      _filterHabits(FrequencyType.daily);
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("Weekly"),
+                    onTap: () {
+                      _filterHabits(FrequencyType.weekly);
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("Monthly"),
+                    onTap: () {
+                      _filterHabits(FrequencyType.monthly);
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    title: const Text("Custom"),
+                    onTap: () {
+                      _filterHabits(FrequencyType.custom);
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
               ),
-              const Divider(),
-              ListTile(
-                title: const Text("Tümü"),
-                onTap: () => _filterHabits(null),
-              ),
-              ListTile(
-                title: const Text("Daily"),
-                onTap: () => _filterHabits(FrequencyType.daily),
-              ),
-              ListTile(
-                title: const Text("Weekly"),
-                onTap: () => _filterHabits(FrequencyType.weekly),
-              ),
-              ListTile(
-                title: const Text("Monthly"),
-                onTap: () => _filterHabits(FrequencyType.monthly),
-              ),
-              ListTile(
-                title: const Text("Custom"),
-                onTap: () => _filterHabits(FrequencyType.custom),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -98,35 +117,39 @@ class _HomePageState extends State<HomePage> {
         centerTitle: true,
         elevation: 2,
         actions: [
-          IconButton(
-            onPressed: () {
-              Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                onPressed: () {
+                  Provider.of<ThemeProvider>(
+                    context,
+                    listen: false,
+                  ).toggleTheme();
+                },
+                icon: Icon(
+                  Provider.of<ThemeProvider>(context).isDarkMode
+                      ? Icons.dark_mode
+                      : Icons.light_mode,
+                  color: Colors.white,
+                ),
+                style: IconButton.styleFrom(iconSize: 24),
+              );
             },
-            icon: Icon(
-              Provider.of<ThemeProvider>(context).isDarkMode
-                  ? Icons.dark_mode
-                  : Icons.light_mode,
-              color: Colors.white,
-            ),
-            style: IconButton.styleFrom(iconSize: 24),
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: HabitList(
-                  hideCompleted: hideCompleted,
-                  filterType: _filterType,
-                ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8.0, left: 8.0),
+              child: HabitList(
+                hideCompleted: hideCompleted,
+                filterType: _filterType,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: bottomNavigator(
         context: context,
