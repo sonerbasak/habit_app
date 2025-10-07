@@ -38,58 +38,74 @@ class IsarService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> refreshHabitWithId(int id) async {
+    final isar = await isarDB;
+    final updatedHabit = await isar.habitModels.get(id);
+
+    if (updatedHabit != null) {
+      final index = _habits.indexWhere((h) => h.id == id);
+      if (index != -1) {
+        _habits[index] = updatedHabit;
+        notifyListeners();
+        debugPrint("Single habit (ID: $id) refreshed in memory.");
+      }
+    }
+  }
+
   Future<void> saveHabit(HabitModel habit, {bool isUpdate = false}) async {
     try {
       final isar = await isarDB;
 
+      //position
       if (!isUpdate) {
         final lastPosition = _habits.isEmpty ? 0 : _habits.last.position + 1;
         habit.position = lastPosition;
         debugPrint("New habit position set: ${habit.position}");
       }
 
-      // Frekans tipi kontrolü (özelleştirilmiş günlerin temizlenmesi)
+      // frequency
       if (habit.frequencyType == FrequencyType.custom) {
         habit.daysOfWeek ??= [];
       } else {
         habit.daysOfWeek = null;
       }
 
-      // Isar veritabanına kaydetme
+      // isar write
       await isar.writeTxn(() async {
         await isar.habitModels.put(habit);
       });
 
-      await refreshHabits();
+      // update all if new else just id
+      if (!isUpdate) {
+        await refreshHabits();
+      } else {
+        await refreshHabitWithId(habit.id);
+      }
     } catch (e) {
       debugPrint("Error saving habit: $e");
     }
 
-    // BİLDİRİM PLANLAMA
-    if (habit.notificationTime != null) {
-      // Önceki bildirimleri iptal et
-      await NotificationService.cancelNotification(habit.id);
+    await NotificationService.cancelNotification(habit.id);
 
+    if (habit.notificationTime != null) {
       await NotificationService.showScheduledNotification(
         id: habit.id,
         title: habit.title ?? "Hatırlatma",
         body: "Bugünkü alışkanlığını tamamlama zamanı!",
         scheduledDate: habit.notificationTime!,
       );
-    } else {
-      // Bildirim saati kaldırıldıysa bildirimi iptal et
-      await NotificationService.cancelNotification(habit.id);
     }
   }
 
-  Future<int> toggleHabitCompletion(HabitModel habit) async {
+  Future<bool> toggleHabitCompletion(HabitModel habit) async {
     try {
       final isar = await isarDB;
       final updatedHabit = await isar.habitModels.get(habit.id);
-      if (updatedHabit == null) return 0;
+      if (updatedHabit == null) return false;
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      bool wasCompleted = false;
 
       final lastCheck = updatedHabit.lastCompletedDate != null
           ? DateTime(
@@ -99,28 +115,31 @@ class IsarService extends ChangeNotifier {
             )
           : null;
 
-      // Alışkanlığı Geri Al (Undo) Kısmı
+      // 1. TAMAMLANMIŞ GÖREVİ GERİ ALMA (Undo)
       if (updatedHabit.isCompleted &&
           lastCheck != null &&
           lastCheck.isAtSameMomentAs(today)) {
+        // Geri Alma İşlemleri
         updatedHabit.isCompleted = false;
         updatedHabit.currentStreak = (updatedHabit.currentStreak - 1).toInt();
 
-        // Geri alma (Undo) mantığını buraya taşıdık.
         final backDuration = _getUndoDuration(
           updatedHabit.frequencyType,
-          habit.daysOfWeek,
+          updatedHabit.daysOfWeek,
           today,
         );
 
         updatedHabit.lastCompletedDate = today.subtract(
           Duration(days: backDuration),
         );
-      }
-      // Alışkanlığı Tamamlama Kısmı
-      else {
+
+        wasCompleted = false; // Geri alındı
+
+        // 2. GÖREVİ TAMAMLAMA (Complete)
+      } else {
         int newStreak = 1;
 
+        // Sadece daha önce tamamlanmış bir tarih varsa seriyi hesapla
         if (lastCheck != null) {
           switch (updatedHabit.frequencyType) {
             case FrequencyType.daily:
@@ -150,20 +169,26 @@ class IsarService extends ChangeNotifier {
           }
         }
 
+        // Tamamlama İşlemleri
         updatedHabit.isCompleted = true;
         updatedHabit.currentStreak = newStreak;
         updatedHabit.lastCompletedDate = today;
+
+        wasCompleted = true; // Yeni tamamlandı
       }
 
       await isar.writeTxn(() async {
         await isar.habitModels.put(updatedHabit);
       });
 
-      await refreshHabits();
-      return 1;
+      await refreshHabitWithId(updatedHabit.id);
+
+      // 🔑 KRİTİK DEĞİŞİKLİK: İşlemin başarılı olup olmadığını ve
+      // alışkanlığın yeni tamamlanıp tamamlanmadığını döndür.
+      return wasCompleted;
     } catch (e) {
       debugPrint("Error toggling habit: $e");
-      return 0;
+      return false; // Hata durumunda false döndür
     }
   }
 
@@ -176,25 +201,21 @@ class IsarService extends ChangeNotifier {
       case FrequencyType.daily:
         return 1;
       case FrequencyType.weekly:
-        // Haftalık streak'te geri alma, bir önceki tamamlanan haftanın son gününe gitmelidir.
-        // Basitlik için bir hafta geriye gidiyoruz.
         return 7;
       case FrequencyType.monthly:
-        // Basitlik için bir ay geriye gidiyoruz (Ortalama 30 gün).
         return 30;
       case FrequencyType.custom:
         if (daysOfWeek == null || daysOfWeek.isEmpty) {
           return 1;
         }
 
-        // En yakın önceki custom günü bul
         for (int i = 1; i <= 7; i++) {
           final checkDate = today.subtract(Duration(days: i));
           if (daysOfWeek.contains(checkDate.weekday)) {
             return i;
           }
         }
-        return 1; // Bulunamazsa varsayılan 1 gün
+        return 1;
     }
   }
 
@@ -218,8 +239,6 @@ class IsarService extends ChangeNotifier {
     DateTime today,
     DateTime lastCheck,
   ) {
-    // Haftalık streak hesaplamanız karmaşık olduğu için, sadece ilgili mantığı buraya taşıdık.
-    // **NOT: Bu metodun ISO 8601'e göre tam olarak test edilmesi gerekir.**
     final todayWeek = getWeekNumber(today);
     final lastWeek = getWeekNumber(lastCheck);
 
@@ -329,13 +348,23 @@ class IsarService extends ChangeNotifier {
 
   Future<void> deleteHabit(int id) async {
     final isar = await isarDB;
-    // Bildirimi iptal etmeyi unutmayın
     await NotificationService.cancelNotification(id);
 
+    final index = _habits.indexWhere((h) => h.id == id);
+
     await isar.writeTxn(() async {
-      await isar.habitModels.delete(id);
+      final success = await isar.habitModels.delete(id);
+      if (success && index != -1) {
+        _habits.removeAt(index);
+
+        for (var i = 0; i < _habits.length; i++) {
+          _habits[i].position = i;
+          await isar.habitModels.put(_habits[i]);
+        }
+      }
     });
-    await refreshHabits();
+    notifyListeners();
+    debugPrint("Habit (ID: $id) deleted and positions reordered in memory.");
   }
 
   Future<void> resetDailyHabits() async {

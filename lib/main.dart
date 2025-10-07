@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:habit_app/services/confetti_service.dart';
 import 'package:habit_app/services/notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:habit_app/routes/app_routes.dart';
@@ -14,7 +15,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => ThemeProvider()),
-
+        ChangeNotifierProvider(create: (context) => ConfettiService()),
         ChangeNotifierProvider<IsarService>(create: (context) => IsarService()),
       ],
       child: MyApp(),

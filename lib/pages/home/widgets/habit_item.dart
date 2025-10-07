@@ -9,6 +9,7 @@ import 'package:habit_app/routes/app_routes.dart';
 import 'package:habit_app/services/habit_services.dart';
 import 'package:provider/provider.dart';
 import 'package:habit_app/pages/home/constant.dart';
+import 'package:habit_app/services/confetti_service.dart';
 
 class HabitItem extends StatefulWidget {
   final HabitModel habit;
@@ -21,7 +22,16 @@ class HabitItem extends StatefulWidget {
 class _HabitItemState extends State<HabitItem> {
   Future<void> _toggleHabit(HabitModel habit) async {
     final isarService = Provider.of<IsarService>(context, listen: false);
-    await isarService.toggleHabitCompletion(habit);
+    final confettiService = Provider.of<ConfettiService>(
+      context,
+      listen: false,
+    );
+
+    final isNewCompletion = await isarService.toggleHabitCompletion(habit);
+
+    if (isNewCompletion) {
+      confettiService.playConfetti();
+    }
   }
 
   Future<void> _deleteHabit(int id) async {

@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:habit_app/models/habit_model.dart';
 import 'package:habit_app/pages/home/widgets/bottom_navigator.dart';
@@ -7,6 +5,8 @@ import 'package:habit_app/pages/home/widgets/habit_list.dart';
 import 'package:habit_app/services/theme_services.dart';
 import 'package:provider/provider.dart';
 import 'package:habit_app/services/habit_services.dart';
+import 'package:confetti/confetti.dart'; // 🔑 Yeni: Confetti paketi
+import 'package:habit_app/services/confetti_service.dart'; // 🔑 Yeni: Confetti Servisi
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -103,11 +103,14 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔑 Confetti servisine erişim
+    final confettiService = Provider.of<ConfettiService>(context);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Provider.of<ThemeProvider>(context).appBarColor,
         title: const Text(
-          "Don't Break the Chain",
+          "Zinciri Kırma",
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 24,
@@ -138,15 +141,40 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
+        // 🔑 Body'yi Stack ile sararak Konfeti katmanını ekliyoruz
         children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8.0, left: 8.0),
-              child: HabitList(
-                hideCompleted: hideCompleted,
-                filterType: _filterType,
+          // 1. KATMAN: Ana İçerik (Liste)
+          Column(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0, left: 8.0),
+                  child: HabitList(
+                    hideCompleted: hideCompleted,
+                    filterType: _filterType,
+                  ),
+                ),
               ),
+            ],
+          ),
+
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: confettiService.controller,
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              colors: const [
+                Colors.pinkAccent,
+                Colors.purpleAccent,
+                Colors.lightGreenAccent,
+                Colors.lightBlueAccent,
+                Colors.yellowAccent,
+              ],
+              emissionFrequency: 0.1,
+              numberOfParticles: 40,
+              gravity: 0.3,
             ),
           ),
         ],

@@ -30,7 +30,6 @@ class _HabitListState extends State<HabitList> {
         if (widget.hideCompleted) {
           habits = habits.where((h) {
             final icon = getHabitIcon(h);
-            // Icons.check_box veya Icons.info ikonuna sahip olmayanları göster.
             return icon != Icons.check_box && icon != Icons.info;
           }).toList();
         }
